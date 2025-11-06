@@ -2,39 +2,216 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fast Napkin Underwriting Tool</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-gray-100 to-indigo-200 min-h-screen">
+
+<body class="bg-gradient-to-br from-indigo-50 to-blue-100 min-h-screen">
   <div id="root" class="p-6"></div>
+
   <script>
     const { useState, useEffect, createElement: e } = React;
 
-    function App() {
-      const [value, setValue] = useState("Ready to underwrite your deal...");
+    function NapkinUnderwritingTool() {
+      const [data, setData] = useState({
+        units: 200,
+        currentRent: 1500,
+        marketRent: 1700,
+        expenseTotal: 1820000,
+        purchasePrice: 3500000,
+        purchaseCap: 6,
+        exitCap: 5.5,
+        vintage: 1985,
+        location: "Houston, TX",
+        avgIncome: 52000,
+        popGrowth: "Positive",
+        floodZone: false,
+        crimeGrade: "B",
+        boilerChiller: false,
+        coastal: false,
+        rentControl: false,
+        allBillsPaid: false,
+      });
 
-      return e("div", { className: "max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8" },
-        e("h1", { className: "text-3xl font-bold text-indigo-600 mb-4" }, "📊 Napkin Underwriting Tool"),
-        e("p", { className: "text-gray-700 mb-4" }, "This is a basic shell. Replace this with full React underwriting logic."),
-        e("textarea", {
-          className: "w-full p-3 border border-gray-300 rounded-md",
-          rows: 4,
-          value: value,
-          onChange: (e) => setValue(e.target.value)
-        }),
-        e("div", { className: "mt-4" },
-          e("button", {
-            className: "px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600",
-            onClick: () => alert("Processing deal... \nThis is a placeholder.")
-          }, "Analyze Deal")
+      const [results, setResults] = useState({});
+
+      useEffect(() => {
+        calculateResults();
+      }, [data]);
+
+      const calculateResults = () => {
+        const grossIncomeCurrent = data.units * data.currentRent * 12;
+        const expenseRatio = data.expenseTotal / grossIncomeCurrent;
+        const noiCurrent = grossIncomeCurrent * (1 - expenseRatio);
+        const valueCurrent = noiCurrent / (data.purchaseCap / 100);
+
+        const grossIncomeMarket = data.units * data.marketRent * 12;
+        const noiMarket = grossIncomeMarket * (1 - expenseRatio);
+        const valueMarket = noiMarket / (data.exitCap / 100);
+        const upsidePercent = ((valueMarket - valueCurrent) / valueCurrent) * 100;
+
+        const buyBox = {
+          price: data.purchasePrice >= 10000000 && data.purchasePrice <= 40000000,
+          vintage: data.vintage >= 1980,
+          units: data.units >= 100 && data.units <= 300,
+          income: data.avgIncome >= 50000,
+          popGrowth: data.popGrowth.toLowerCase() === "positive",
+          floodZone: !data.floodZone,
+          crime: ["A", "B", "C"].includes(data.crimeGrade),
+        };
+
+        const redFlags = {
+          boilerChiller: data.boilerChiller,
+          coastal: data.coastal,
+          rentControl: data.rentControl,
+          allBillsPaid: data.allBillsPaid,
+        };
+
+        const buyBoxFit = Object.values(buyBox).every(Boolean);
+        const dealBreaker = Object.values(redFlags).some(Boolean);
+
+        const decision = dealBreaker
+          ? "❌ PASS - Red Flag Triggered"
+          : upsidePercent >= 20 && buyBoxFit && expenseRatio <= 0.5
+          ? "✅ MOVE FORWARD"
+          : "⚠️ CAUTION - Needs Review";
+
+        setResults({
+          grossIncomeCurrent,
+          noiCurrent,
+          valueCurrent,
+          grossIncomeMarket,
+          noiMarket,
+          valueMarket,
+          expenseRatio,
+          upsidePercent,
+          buyBox,
+          redFlags,
+          decision,
+        });
+      };
+
+      const handle = (field, value) => {
+        setData((prev) => ({
+          ...prev,
+          [field]: typeof value === "string" ? value : parseFloat(value) || 0,
+        }));
+      };
+
+      const fCur = (v) => (v ? "$" + v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "-");
+      const fPct = (v) => (v ? v.toFixed(1) + "%" : "-");
+
+      return e("div", { className: "max-w-5xl mx-auto bg-white p-8 rounded-2xl shadow-xl" },
+        e("h1", { className: "text-3xl font-bold text-indigo-700 mb-6" }, "🏠 Fast Napkin Underwriting Tool"),
+
+        e("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6" },
+          // Left Column - Inputs
+          e("div", {},
+            e("h2", { className: "text-xl font-semibold mb-3" }, "Input Data"),
+            Object.entries({
+              Units: "units",
+              "Current Rent": "currentRent",
+              "Market Rent": "marketRent",
+              "Total Expenses (Annual)": "expenseTotal",
+              "Purchase Price": "purchasePrice",
+              "Purchase Cap Rate (%)": "purchaseCap",
+              "Exit Cap Rate (%)": "exitCap",
+              "Vintage Year": "vintage",
+              "Average Income in Area": "avgIncome",
+            }).map(([label, key]) =>
+              e("div", { key, className: "mb-2" },
+                e("label", { className: "block text-gray-700 text-sm font-medium" }, label),
+                e("input", {
+                  type: "number",
+                  value: data[key],
+                  onChange: (e) => handle(key, e.target.value),
+                  className: "w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-400",
+                })
+              )
+            ),
+            e("div", { className: "mt-2" },
+              e("label", { className: "block text-gray-700 text-sm font-medium" }, "Population Growth"),
+              e("select", {
+                value: data.popGrowth,
+                onChange: (e) => handle("popGrowth", e.target.value),
+                className: "w-full border border-gray-300 rounded-lg p-2",
+              },
+                e("option", { value: "Positive" }, "Positive"),
+                e("option", { value: "Negative" }, "Negative")
+              )
+            ),
+            e("div", { className: "mt-2" },
+              e("label", { className: "block text-gray-700 text-sm font-medium" }, "Crime Grade"),
+              e("select", {
+                value: data.crimeGrade,
+                onChange: (e) => handle("crimeGrade", e.target.value),
+                className: "w-full border border-gray-300 rounded-lg p-2",
+              },
+                ["A", "B", "C", "D", "F"].map((g) => e("option", { key: g }, g))
+              )
+            ),
+            e("div", { className: "mt-4 space-y-2" },
+              ["Flood Zone", "Boiler/Chiller", "Coastal", "Rent Control", "All Bills Paid"].map((label, i) => {
+                const key = ["floodZone", "boilerChiller", "coastal", "rentControl", "allBillsPaid"][i];
+                return e("div", { key, className: "flex items-center gap-2" },
+                  e("input", {
+                    type: "checkbox",
+                    checked: data[key],
+                    onChange: (e) => handle(key, e.target.checked),
+                  }),
+                  e("label", { className: "text-gray-700" }, label)
+                );
+              })
+            )
+          ),
+
+          // Right Column - Results
+          e("div", {},
+            e("h2", { className: "text-xl font-semibold mb-3" }, "Results Summary"),
+            e("div", { className: "bg-indigo-50 p-4 rounded-lg mb-4" },
+              e("h3", { className: "font-bold text-indigo-700 mb-2" }, "Current Performance"),
+              e("p", null, "NOI: ", fCur(results.noiCurrent)),
+              e("p", null, "Value @ Current Cap: ", fCur(results.valueCurrent)),
+              e("p", null, "Expense Ratio: ", fPct(results.expenseRatio * 100))
+            ),
+            e("div", { className: "bg-emerald-50 p-4 rounded-lg mb-4" },
+              e("h3", { className: "font-bold text-emerald-700 mb-2" }, "Proforma"),
+              e("p", null, "NOI: ", fCur(results.noiMarket)),
+              e("p", null, "Value @ Exit Cap: ", fCur(results.valueMarket)),
+              e("p", null, "Upside: ", fPct(results.upsidePercent))
+            ),
+            e("div", { className: "bg-gray-50 p-4 rounded-lg mb-4" },
+              e("h3", { className: "font-bold text-gray-800 mb-2" }, "Buy Box Fit"),
+              e("ul", { className: "list-disc pl-5" },
+                results.buyBox &&
+                  Object.entries(results.buyBox).map(([k, v]) =>
+                    e("li", { key: k, className: v ? "text-green-600" : "text-red-500" },
+                      k + ": " + (v ? "✅ Pass" : "❌ Fail"))
+                  )
+              )
+            ),
+            e("div", { className: "bg-red-50 p-4 rounded-lg mb-4" },
+              e("h3", { className: "font-bold text-red-700 mb-2" }, "Red Flags"),
+              e("ul", { className: "list-disc pl-5" },
+                results.redFlags &&
+                  Object.entries(results.redFlags).map(([k, v]) =>
+                    e("li", { key: k, className: v ? "text-red-600" : "text-green-600" },
+                      k + ": " + (v ? "❌ YES" : "✅ NO"))
+                  )
+              )
+            ),
+            e("div", { className: "text-center p-4 rounded-lg shadow-md bg-white border mt-4" },
+              e("h2", { className: "text-2xl font-bold" }, results.decision || "Awaiting Input...")
+            )
+          )
         )
       );
     }
 
-    ReactDOM.render(e(App), document.getElementById("root"));
+    ReactDOM.render(e(NapkinUnderwritingTool), document.getElementById("root"));
   </script>
 </body>
 </html>
