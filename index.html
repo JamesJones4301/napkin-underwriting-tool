@@ -1,5 +1,4 @@
 
-<!-- FULL HTML WITH EXPORT BUTTON INCLUDED -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,191 +9,115 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-indigo-50 to-blue-100 min-h-screen">
+<body class="bg-gradient-to-br from-gray-100 to-indigo-200 min-h-screen">
   <div id="root" class="p-6"></div>
   <script>
-    const { useState, useEffect, createElement: e } = React;
+    const { useState, createElement: e } = React;
 
-    function NapkinUnderwritingTool() {
-      const [data, setData] = useState({
-        units: 200,
-        currentRent: 1500,
-        marketRent: 1700,
-        expenseTotal: 1820000,
-        purchasePrice: 3500000,
-        purchaseCap: 6,
-        exitCap: 5.5,
-        vintage: 1985,
-        location: "Houston, TX",
-        avgIncome: 52000,
-        popGrowth: "Positive",
-        floodZone: false,
-        crimeGrade: "B",
-        boilerChiller: false,
-        coastal: false,
-        rentControl: false,
-        allBillsPaid: false
+    function App() {
+      const [inputs, setInputs] = useState({
+        units: 100,
+        askingPrice: 8000000,
+        offerPrice: 6000000,
+        rent: 1200,
+        expensesPerUnit: 6000,
+        vacancy: 5,
+        capRate: 7.5,
+        rehabCosts: 500000,
+        ltv: 75,
+        interestRate: 6.5
       });
 
-      const [results, setResults] = useState({});
-
-      useEffect(() => calculateResults(), [data]);
-
-      const handle = (field, value) => {
-        setData(prev => ({
-          ...prev,
-          [field]: typeof value === "string" ? value : parseFloat(value) || 0
-        }));
+      const handleChange = (key, val) => {
+        setInputs({ ...inputs, [key]: parseFloat(val) || 0 });
       };
 
-      const fCur = v => v ? "$" + v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "-";
-      const fPct = v => v ? v.toFixed(1) + "%" : "-";
+      const annualIncome = inputs.units * inputs.rent * 12 * (1 - inputs.vacancy / 100);
+      const annualExpenses = inputs.units * inputs.expensesPerUnit;
+      const NOI = annualIncome - annualExpenses;
+      const valuation = NOI / (inputs.capRate / 100);
+      const totalCost = inputs.offerPrice + inputs.rehabCosts;
+      const valuePremium = (valuation - totalCost) / totalCost * 100;
+      const loanAmt = totalCost * (inputs.ltv / 100);
+      const debtService = loanAmt * (inputs.interestRate / 100);
+      const dscr = NOI / debtService;
+      const cashFlow = NOI - debtService;
+      const downPayment = totalCost - loanAmt;
+      const coc = (cashFlow / downPayment) * 100;
 
-      const calculateResults = () => {
-        const grossIncomeCurrent = data.units * data.currentRent * 12;
-        const expenseRatio = data.expenseTotal / grossIncomeCurrent;
-        const noiCurrent = grossIncomeCurrent * (1 - expenseRatio);
-        const valueCurrent = noiCurrent / (data.purchaseCap / 100);
+      let dealStatus = "⚠️ Needs Review";
+      if (valuePremium < 10 || dscr < 1.2 || coc < 8) {
+        dealStatus = "❌ Bad Deal";
+      } else if (valuePremium >= 25 && dscr >= 1.5 && coc >= 15) {
+        dealStatus = "💰 Great Deal";
+      } else if (valuePremium >= 15 && dscr >= 1.3 && coc >= 10) {
+        dealStatus = "✅ Good Deal";
+      }
 
-        const grossIncomeMarket = data.units * data.marketRent * 12;
-        const noiMarket = grossIncomeMarket * (1 - expenseRatio);
-        const valueMarket = noiMarket / (data.exitCap / 100);
-        const upsidePercent = ((valueMarket - valueCurrent) / valueCurrent) * 100;
-
-        const buyBox = {
-          price: data.purchasePrice >= 10000000 && data.purchasePrice <= 40000000,
-          vintage: data.vintage >= 1980,
-          units: data.units >= 100 && data.units <= 300,
-          income: data.avgIncome >= 50000,
-          popGrowth: data.popGrowth.toLowerCase() === "positive",
-          floodZone: !data.floodZone,
-          crime: ["A", "B", "C"].includes(data.crimeGrade)
+      const downloadJSON = () => {
+        const data = {
+          inputs, valuation, NOI, dscr, coc, valuePremium, dealStatus
         };
-
-        const redFlags = {
-          boilerChiller: data.boilerChiller,
-          coastal: data.coastal,
-          rentControl: data.rentControl,
-          allBillsPaid: data.allBillsPaid
-        };
-
-        const buyBoxFit = Object.values(buyBox).every(Boolean);
-        const dealBreaker = Object.values(redFlags).some(Boolean);
-        const decision = dealBreaker ? "❌ PASS - Red Flag Triggered"
-                       : upsidePercent >= 20 && buyBoxFit && expenseRatio <= 0.5
-                         ? "✅ MOVE FORWARD"
-                         : "⚠️ CAUTION - Needs Review";
-
-        setResults({
-          grossIncomeCurrent, noiCurrent, valueCurrent,
-          grossIncomeMarket, noiMarket, valueMarket,
-          expenseRatio, upsidePercent,
-          buyBox, redFlags, decision
-        });
-      };
-
-      const exportDeal = () => {
-        const exportData = {
-          inputs: data,
-          results: results
-        };
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "napkin-deal.json";
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'deal_analysis.json';
         link.click();
+        URL.revokeObjectURL(url);
       };
 
-      return e("div", { className: "max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-xl space-y-6" },
-        e("h1", { className: "text-3xl font-bold text-indigo-700" }, "📊 Napkin Underwriting Tool"),
+      const Input = (label, key, suffix = "") =>
+        e("div", { className: "mb-4" },
+          e("label", { className: "block text-gray-700 font-semibold mb-1" }, label),
+          e("input", {
+            type: "number",
+            value: inputs[key],
+            onChange: e => handleChange(key, e.target.value),
+            className: "w-full p-2 border border-gray-300 rounded"
+          }),
+          suffix && e("span", { className: "text-sm text-gray-600 ml-1" }, suffix)
+        );
 
-        e("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6" },
-          // Inputs
-          e("div", {},
-            ...[
-              ["Units", "units"],
-              ["Current Rent", "currentRent"],
-              ["Market Rent", "marketRent"],
-              ["Total Expenses (Annual)", "expenseTotal"],
-              ["Purchase Price", "purchasePrice"],
-              ["Purchase Cap Rate (%)", "purchaseCap"],
-              ["Exit Cap Rate (%)", "exitCap"],
-              ["Vintage Year", "vintage"],
-              ["Average Income", "avgIncome"]
-            ].map(([label, key]) =>
-              e("div", { key },
-                e("label", { className: "block text-sm font-medium text-gray-700" }, label),
-                e("input", {
-                  type: "number",
-                  value: data[key],
-                  onChange: e => handle(key, e.target.value),
-                  className: "w-full p-2 border border-gray-300 rounded-lg mb-2"
-                })
-              )
-            ),
-            e("label", { className: "block text-sm font-medium text-gray-700" }, "Population Growth"),
-            e("select", {
-              value: data.popGrowth,
-              onChange: e => handle("popGrowth", e.target.value),
-              className: "w-full mb-2 border border-gray-300 rounded-lg p-2"
-            },
-              e("option", { value: "Positive" }, "Positive"),
-              e("option", { value: "Negative" }, "Negative")
-            ),
-            e("label", { className: "block text-sm font-medium text-gray-700" }, "Crime Grade"),
-            e("select", {
-              value: data.crimeGrade,
-              onChange: e => handle("crimeGrade", e.target.value),
-              className: "w-full mb-2 border border-gray-300 rounded-lg p-2"
-            },
-              ["A", "B", "C", "D", "F"].map(g => e("option", { key: g }, g))
-            ),
-            ...[
-              ["Flood Zone", "floodZone"],
-              ["Boiler/Chiller", "boilerChiller"],
-              ["Coastal", "coastal"],
-              ["Rent Control", "rentControl"],
-              ["All Bills Paid", "allBillsPaid"]
-            ].map(([label, key]) =>
-              e("div", { key, className: "flex items-center space-x-2" },
-                e("input", {
-                  type: "checkbox",
-                  checked: data[key],
-                  onChange: e => handle(key, e.target.checked)
-                }),
-                e("label", null, label)
-              )
-            )
-          ),
+      const Metric = (label, value) =>
+        e("div", { className: "flex justify-between mb-2" },
+          e("span", { className: "text-gray-600" }, label),
+          e("span", { className: "font-medium" }, value)
+        );
 
-          // Results
-          e("div", { className: "space-y-4" },
-            e("div", { className: "bg-indigo-100 p-4 rounded-lg" },
-              e("h2", { className: "text-lg font-semibold" }, "Current Performance"),
-              e("p", null, "NOI: ", fCur(results.noiCurrent)),
-              e("p", null, "Value: ", fCur(results.valueCurrent)),
-              e("p", null, "Expense Ratio: ", fPct((results.expenseRatio || 0) * 100))
-            ),
-            e("div", { className: "bg-green-100 p-4 rounded-lg" },
-              e("h2", { className: "text-lg font-semibold" }, "Proforma Performance"),
-              e("p", null, "NOI: ", fCur(results.noiMarket)),
-              e("p", null, "Value: ", fCur(results.valueMarket)),
-              e("p", null, "Upside: ", fPct(results.upsidePercent))
-            ),
-            e("div", { className: "bg-gray-100 p-4 rounded-lg" },
-              e("h2", { className: "text-lg font-semibold" }, "Decision"),
-              e("p", { className: "text-xl font-bold" }, results.decision || "-")
-            ),
-            e("button", {
-              onClick: exportDeal,
-              className: "bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 mt-2"
-            }, "📁 Export Deal JSON")
-          )
+      return e("div", { className: "max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8" },
+        e("h1", { className: "text-3xl font-bold text-indigo-600 mb-6" }, "📊 Napkin Underwriting Tool"),
+        e("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6 mb-6" }, [
+          Input("Units", "units"),
+          Input("Asking Price ($)", "askingPrice"),
+          Input("Offer Price ($)", "offerPrice"),
+          Input("Monthly Rent/Unit ($)", "rent"),
+          Input("Expenses/Unit/Year ($)", "expensesPerUnit"),
+          Input("Vacancy Rate (%)", "vacancy"),
+          Input("Cap Rate (%)", "capRate"),
+          Input("Rehab Costs ($)", "rehabCosts"),
+          Input("LTV (%)", "ltv"),
+          Input("Interest Rate (%)", "interestRate"),
+        ]),
+        e("h2", { className: "text-xl font-bold text-indigo-700 mb-2" }, "📈 Deal Metrics"),
+        Metric("Annual Income", "$" + annualIncome.toFixed(0)),
+        Metric("Annual Expenses", "$" + annualExpenses.toFixed(0)),
+        Metric("Net Operating Income (NOI)", "$" + NOI.toFixed(0)),
+        Metric("Valuation @ Cap Rate", "$" + valuation.toFixed(0)),
+        Metric("Value Premium over Cost", valuePremium.toFixed(1) + "%"),
+        Metric("DSCR", dscr.toFixed(2)),
+        Metric("Cash-on-Cash Return", coc.toFixed(1) + "%"),
+        Metric("Status", dealStatus),
+        e("div", { className: "mt-6 flex gap-4" },
+          e("button", {
+            onClick: downloadJSON,
+            className: "px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          }, "📁 Export Deal JSON")
         )
       );
     }
 
-    ReactDOM.render(React.createElement(NapkinUnderwritingTool), document.getElementById("root"));
+    ReactDOM.render(React.createElement(App), document.getElementById("root"));
   </script>
 </body>
 </html>
