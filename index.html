@@ -5,119 +5,111 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Napkin Underwriting Tool</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gradient-to-br from-gray-100 to-indigo-200 min-h-screen">
-  <div id="root" class="p-6"></div>
+<body class="bg-gray-100 text-gray-900 p-6">
+  <div class="max-w-3xl mx-auto bg-white shadow-lg rounded-xl p-8">
+    <h1 class="text-3xl font-bold mb-4 text-center">🏘️ Napkin Underwriting Tool</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block font-medium">Number of Doors</label>
+        <input id="doors" type="number" class="w-full border rounded p-2" value="0" />
+      </div>
+      <div>
+        <label class="block font-medium">Asking Price ($)</label>
+        <input id="asking" type="number" class="w-full border rounded p-2" value="0" />
+      </div>
+      <div>
+        <label class="block font-medium">Offer Price ($)</label>
+        <input id="offer" type="number" class="w-full border rounded p-2" value="0" />
+      </div>
+      <div>
+        <label class="block font-medium">Annual Gross Income ($)</label>
+        <input id="income" type="number" class="w-full border rounded p-2" value="0" />
+      </div>
+      <div>
+        <label class="block font-medium">Annual Operating Expenses ($)</label>
+        <input id="expenses" type="number" class="w-full border rounded p-2" value="0" />
+      </div>
+      <div>
+        <label class="block font-medium">Cap Rate (%)</label>
+        <input id="caprate" type="number" class="w-full border rounded p-2" value="8" step="0.01" />
+      </div>
+      <div>
+        <label class="block font-medium">Rehab/CapEx ($)</label>
+        <input id="rehab" type="number" class="w-full border rounded p-2" value="0" />
+      </div>
+      <div>
+        <label class="block font-medium">LTV (%)</label>
+        <input id="ltv" type="number" class="w-full border rounded p-2" value="70" />
+      </div>
+      <div>
+        <label class="block font-medium">Interest Rate (%)</label>
+        <input id="interest" type="number" class="w-full border rounded p-2" value="6.5" step="0.01" />
+      </div>
+    </div>
+
+    <div class="mt-6 flex justify-center">
+      <button onclick="analyze()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold">
+        Analyze Deal
+      </button>
+    </div>
+
+    <div id="results" class="mt-8 bg-gray-50 p-4 rounded shadow hidden">
+      <h2 class="text-xl font-bold mb-4">📊 Results</h2>
+      <div id="metrics" class="space-y-2 text-gray-800"></div>
+    </div>
+  </div>
+
   <script>
-    const { useState, createElement: e } = React;
+    function analyze() {
+      const doors = parseFloat(document.getElementById('doors').value);
+      const asking = parseFloat(document.getElementById('asking').value);
+      const offer = parseFloat(document.getElementById('offer').value);
+      const income = parseFloat(document.getElementById('income').value);
+      const expenses = parseFloat(document.getElementById('expenses').value);
+      const caprate = parseFloat(document.getElementById('caprate').value) / 100;
+      const rehab = parseFloat(document.getElementById('rehab').value);
+      const ltv = parseFloat(document.getElementById('ltv').value) / 100;
+      const interest = parseFloat(document.getElementById('interest').value) / 100;
 
-    function App() {
-      const [inputs, setInputs] = useState({
-        units: 100,
-        askingPrice: 8000000,
-        offerPrice: 6000000,
-        rent: 1200,
-        expensesPerUnit: 6000,
-        vacancy: 5,
-        capRate: 7.5,
-        rehabCosts: 500000,
-        ltv: 75,
-        interestRate: 6.5
-      });
+      const noi = income - expenses;
+      const estimatedValue = caprate ? noi / caprate : 0;
+      const upside = ((estimatedValue - offer) / offer) * 100;
+      const totalCost = offer + rehab;
+      const loan = totalCost * ltv;
+      const equity = totalCost - loan;
+      const debtService = loan * interest;
+      const dscr = debtService ? noi / debtService : 0;
+      const cashFlow = noi - debtService;
+      const coc = equity ? (cashFlow / equity) * 100 : 0;
+      const valuePerDoor = doors ? estimatedValue / doors : 0;
+      const offerPerDoor = doors ? offer / doors : 0;
 
-      const handleChange = (key, val) => {
-        setInputs({ ...inputs, [key]: parseFloat(val) || 0 });
-      };
-
-      const annualIncome = inputs.units * inputs.rent * 12 * (1 - inputs.vacancy / 100);
-      const annualExpenses = inputs.units * inputs.expensesPerUnit;
-      const NOI = annualIncome - annualExpenses;
-      const valuation = NOI / (inputs.capRate / 100);
-      const totalCost = inputs.offerPrice + inputs.rehabCosts;
-      const valuePremium = (valuation - totalCost) / totalCost * 100;
-      const loanAmt = totalCost * (inputs.ltv / 100);
-      const debtService = loanAmt * (inputs.interestRate / 100);
-      const dscr = NOI / debtService;
-      const cashFlow = NOI - debtService;
-      const downPayment = totalCost - loanAmt;
-      const coc = (cashFlow / downPayment) * 100;
-
-      let dealStatus = "⚠️ Needs Review";
-      if (valuePremium < 10 || dscr < 1.2 || coc < 8) {
-        dealStatus = "❌ Bad Deal";
-      } else if (valuePremium >= 25 && dscr >= 1.5 && coc >= 15) {
-        dealStatus = "💰 Great Deal";
-      } else if (valuePremium >= 15 && dscr >= 1.3 && coc >= 10) {
-        dealStatus = "✅ Good Deal";
+      let grade = '❌ Bad Deal';
+      if (upside >= 30 && dscr >= 1.25 && coc >= 10) {
+        grade = '💰 Great Deal';
+      } else if (upside >= 20 && dscr >= 1.1) {
+        grade = '✅ Good Deal';
+      } else if (upside >= 10) {
+        grade = '⚠️ Needs Review';
       }
 
-      const downloadJSON = () => {
-        const data = {
-          inputs, valuation, NOI, dscr, coc, valuePremium, dealStatus
-        };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'deal_analysis.json';
-        link.click();
-        URL.revokeObjectURL(url);
-      };
+      const metrics = `
+        NOI: $${noi.toFixed(2)}<br/>
+        Value Estimate (@ ${caprate * 100}% cap): $${estimatedValue.toFixed(2)}<br/>
+        Value per Door: $${valuePerDoor.toFixed(2)}<br/>
+        Offer per Door: $${offerPerDoor.toFixed(2)}<br/>
+        Upside: ${upside.toFixed(1)}%<br/>
+        DSCR: ${dscr.toFixed(2)}<br/>
+        Cash-on-Cash: ${coc.toFixed(1)}%<br/>
+        <strong>Deal Grade: ${grade}</strong>
+      `;
 
-      const Input = (label, key, suffix = "") =>
-        e("div", { className: "mb-4" },
-          e("label", { className: "block text-gray-700 font-semibold mb-1" }, label),
-          e("input", {
-            type: "number",
-            value: inputs[key],
-            onChange: e => handleChange(key, e.target.value),
-            className: "w-full p-2 border border-gray-300 rounded"
-          }),
-          suffix && e("span", { className: "text-sm text-gray-600 ml-1" }, suffix)
-        );
-
-      const Metric = (label, value) =>
-        e("div", { className: "flex justify-between mb-2" },
-          e("span", { className: "text-gray-600" }, label),
-          e("span", { className: "font-medium" }, value)
-        );
-
-      return e("div", { className: "max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8" },
-        e("h1", { className: "text-3xl font-bold text-indigo-600 mb-6" }, "📊 Napkin Underwriting Tool"),
-        e("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-6 mb-6" }, [
-          Input("Units", "units"),
-          Input("Asking Price ($)", "askingPrice"),
-          Input("Offer Price ($)", "offerPrice"),
-          Input("Monthly Rent/Unit ($)", "rent"),
-          Input("Expenses/Unit/Year ($)", "expensesPerUnit"),
-          Input("Vacancy Rate (%)", "vacancy"),
-          Input("Cap Rate (%)", "capRate"),
-          Input("Rehab Costs ($)", "rehabCosts"),
-          Input("LTV (%)", "ltv"),
-          Input("Interest Rate (%)", "interestRate"),
-        ]),
-        e("h2", { className: "text-xl font-bold text-indigo-700 mb-2" }, "📈 Deal Metrics"),
-        Metric("Annual Income", "$" + annualIncome.toFixed(0)),
-        Metric("Annual Expenses", "$" + annualExpenses.toFixed(0)),
-        Metric("Net Operating Income (NOI)", "$" + NOI.toFixed(0)),
-        Metric("Valuation @ Cap Rate", "$" + valuation.toFixed(0)),
-        Metric("Value Premium over Cost", valuePremium.toFixed(1) + "%"),
-        Metric("DSCR", dscr.toFixed(2)),
-        Metric("Cash-on-Cash Return", coc.toFixed(1) + "%"),
-        Metric("Status", dealStatus),
-        e("div", { className: "mt-6 flex gap-4" },
-          e("button", {
-            onClick: downloadJSON,
-            className: "px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-          }, "📁 Export Deal JSON")
-        )
-      );
+      document.getElementById('results').classList.remove('hidden');
+      document.getElementById('metrics').innerHTML = metrics;
     }
-
-    ReactDOM.render(React.createElement(App), document.getElementById("root"));
   </script>
 </body>
 </html>
